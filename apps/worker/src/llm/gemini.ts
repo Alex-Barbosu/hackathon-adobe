@@ -45,7 +45,8 @@ export class GeminiTransport implements Transport {
     if (process.env["NODE_ENV"] === "test" || process.env["VITEST"]) {
       throw new Error("GeminiTransport refuses to run under test; use the fake client");
     }
-    this.client = new GoogleGenAI({ apiKey });
+    // Image inputs on Interactions are only accepted on v1beta (the SDK defaults to v1; verified against the live API).
+    this.client = new GoogleGenAI({ apiKey, apiVersion: "v1beta" });
   }
 
   private toError(err: unknown): HttpError {

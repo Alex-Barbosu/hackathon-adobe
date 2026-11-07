@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@google/genai": "latest",
     "@supabase/supabase-js": "latest",
     "sharp": "latest",
     "zod": "^4.0.0"

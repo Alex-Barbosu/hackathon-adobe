@@ -46,6 +46,14 @@ function stripFences(text: string): string {
   return (m?.[1] ?? text).trim();
 }
 
+// 402 is a billing state, not a bug: say so instead of showing the raw API payload.
+function rejectionMessage(http: HttpError): string {
+  if (http.status === 402) {
+    return "Gemini rejected the request (402): this API key's project has no billing credit left. Use a free-tier AI Studio key or add credit, then re-run (cached answers are reused).";
+  }
+  return `Model call rejected (${http.status}): ${http.message}`;
+}
+
 export function cacheKey(model: string, req: JsonRequest<unknown>): string {
   const textParts = req.parts.flatMap((p) => (p.kind === "text" ? [p.text] : []));
   const imageShas = req.parts.flatMap((p) => (p.kind === "image" ? [p.sha256] : []));
@@ -199,7 +207,7 @@ export class LlmService implements LlmClient {
           latencyMs: this.clock.now() - t0,
           error: http.message,
         });
-        if (!retryable) throw new FatalError(`Model call rejected (${http.status}): ${http.message}`);
+        if (!retryable) throw new FatalError(rejectionMessage(http));
         if (http.status === 429) {
           this.o.limiter.coolDown(model, http.retryAfterMs ?? BACKOFF_BASE_MS);
           await this.o.store.note429(model, this.dayNow());
@@ -288,7 +296,7 @@ export class LlmService implements LlmClient {
         const http = err instanceof HttpError ? err : new HttpError(errorMessage(err), 0);
         const retryable = http.status === 0 || isRetryableStatus(http.status);
         await this.log(meta, model, { cacheHit: false, status: retryable ? "retry" : "error", attempt, httpStatus: http.status || undefined, error: http.message });
-        if (!retryable) throw new FatalError(`Embedding rejected (${http.status}): ${http.message}`);
+        if (!retryable) throw new FatalError(rejectionMessage(http));
         if (http.status === 429) this.o.limiter.coolDown(model, http.retryAfterMs ?? BACKOFF_BASE_MS);
         if (attempt >= this.maxAttempts) throw new RetryableError(`Embedding failed after ${attempt} attempts: ${http.message}`);
         await this.backoff(attempt, http);

@@ -261,6 +261,9 @@ importers:
 
   scripts:
     dependencies:
+      '@google/genai':
+        specifier: latest
+        version: 3.0.0(supports-color@7.2.0)
       '@supabase/supabase-js':
         specifier: latest
         version: 2.119.0

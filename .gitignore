@@ -8,3 +8,4 @@ tmp/
 supabase/.temp/
 supabase/.branches/
 *.log
+out/
