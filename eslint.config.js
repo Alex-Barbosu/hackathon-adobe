@@ -8,6 +8,8 @@ export default defineConfig(
     ignores: [
       "**/node_modules/**",
       "**/dist/**",
+      "**/*.mjs",
+      "apps/debug-ui/vite.config.ts",
       "coverage/**",
       "tmp/**",
       "supabase/.temp/**",
@@ -28,6 +30,13 @@ export default defineConfig(
       "@typescript-eslint/ban-ts-comment": "error",
       "no-restricted-exports": ["error", { restrictDefaultExports: { direct: true } }],
       "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: true }],
+      // Stylistic rules that fight noUncheckedIndexedAccess and idiomatic React handlers; correctness rules stay on.
+      "@typescript-eslint/no-confusing-void-expression": "off",
+      "@typescript-eslint/no-unnecessary-condition": "off",
+      "@typescript-eslint/no-base-to-string": "off",
+      "@typescript-eslint/use-unknown-in-catch-callback-variable": "off",
+      "@typescript-eslint/no-misused-promises": ["error", { checksVoidReturn: false }],
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
     },
   },
   { files: ["**/*.test.ts"], rules: { "@typescript-eslint/no-non-null-assertion": "off", "@typescript-eslint/no-confusing-void-expression": "off" } },

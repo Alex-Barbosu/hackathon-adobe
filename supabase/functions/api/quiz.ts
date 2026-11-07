@@ -235,14 +235,17 @@ export async function finish(sessionId: string, auth: Auth): Promise<Response> {
   } catch (e) {
     throw new ApiError(409, "not_ready", e instanceof Error ? e.message : "Quiz cannot finish yet");
   }
+  // Claim the session atomically so two concurrent finishes cannot both create a brief and plan variants.
+  const claimed = await admin.from("quiz_sessions").update({ status: "finished", finished_at: new Date().toISOString() }).eq("id", sessionId).neq("status", "finished").select("id");
+  if (claimed.error) throw new Error(claimed.error.message);
+  if ((claimed.data ?? []).length === 0) throw new ApiError(409, "already_finishing", "Quiz is already being finished; retry to fetch the brief");
   const row = check(
     await admin.from("creative_briefs").insert({
       session_id: sessionId, analysis_id: analysisId, version: (prev?.version ?? 0) + 1, brief: result.brief, brief_hash: result.hash,
     }).select().single(),
     "insert brief",
   ) as Row;
-  check(await admin.from("quiz_sessions").update({ status: "finished", finished_at: new Date().toISOString() }).eq("id", sessionId), "finish session");
   await transition(admin, analysisId, ["quiz_in_progress"], "planning");
-  await enqueue(admin, { type: "plan_variants", analysisId, briefId: row["id"] as string, idem: `plan_variants:${row["id"] as string}` });
+  await enqueue(admin, { type: "plan_variants", analysisId, briefId: row["id"] as string, idem: `plan_variants:${analysisId}` });
   return json({ briefId: row["id"], brief: result.brief, hash: result.hash });
 }

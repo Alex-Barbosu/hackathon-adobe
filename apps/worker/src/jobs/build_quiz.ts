@@ -5,7 +5,6 @@ import {
   instantiateCoreQuestions,
   validateDynamicQuestions,
   type BankContext,
-  type Element,
   type FindingLite,
   type QuizQuestion,
 } from "@nologo/core";
@@ -121,7 +120,7 @@ export const buildQuiz: JobHandler<"build_quiz"> = async (ctx, msg) => {
 
   const bankCtx: BankContext = {
     regions: regions.map((r) => ({ id: r.id, kind: r.kind, label: r.label, isIdentifier: r.isIdentifier })),
-    impacts: impactRows.map((r) => ({ element: r.element as Element, delta: r.delta })),
+    impacts: impactRows.map((r) => ({ element: r.element, delta: r.delta })),
     cueShares: parseJson(NumberRecord, bm.cue_freq, "cue_freq"),
     palette,
     competitors: brands.filter((b) => !b.isTarget).map((b) => ({ id: b.brandId, name: b.label, pull: pull[b.brandId] ?? 0 })),

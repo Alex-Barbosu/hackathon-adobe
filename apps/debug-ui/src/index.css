@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Source Sans 3", ui-sans-serif, sans-serif;
+  --font-serif: "Fraunces", Georgia, serif;
+  --color-accent: #b4491f;
+}
+
+body {
+  @apply bg-stone-50 font-sans text-stone-900;
+}
+h1,
+h2,
+h3 {
+  @apply font-serif;
+}
+button {
+  @apply rounded bg-accent px-3 py-1 text-white disabled:opacity-40;
+}
+input,
+select {
+  @apply rounded border border-stone-300 bg-white px-2 py-1;
+}

@@ -33,7 +33,7 @@ export const diagnose: JobHandler<"diagnose"> = async (ctx, msg) => {
 
   const impactRows = must(await ctx.db.from("element_impacts").select("*").eq("analysis_id", a.id), "impacts");
   const impacts: ImpactInput[] = impactRows.map((r) => ({
-    element: r.element as Element,
+    element: r.element,
     delta: r.delta,
     deltaCi: parseJson(Pair, r.delta_ci, "delta_ci"),
     pullShift: parseJson(NumberRecord, r.pull_shift, "pull_shift"),

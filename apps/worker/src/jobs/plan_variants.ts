@@ -1,5 +1,5 @@
 import { CreativeBrief, planSignature, validatePlan, type EditPlanValue, type PlanContext } from "@nologo/core";
-import { must, mustOk, toJson } from "../db.ts";
+import { must, toJson } from "../db.ts";
 import { FatalError } from "../errors.ts";
 import { sha256Hex } from "../image/raster.ts";
 import * as planPrompt from "../llm/prompts/plan.ts";
