@@ -58,10 +58,12 @@ export const planVariants: JobHandler<"plan_variants"> = async (ctx, msg) => {
     findingsJson: JSON.stringify(findings),
     briefJson: JSON.stringify(brief),
     allowedPalette: brief.palette,
+    allowGenerative: ctx.editor !== undefined,
   };
   const pctx: PlanContext = {
     regions: refs,
     brief,
+    generativeEnabled: ctx.editor !== undefined,
     escapeColors: brief.competitorToEscape ? a.cfg.competitorPalettes[brief.competitorToEscape] ?? [] : [],
   };
 

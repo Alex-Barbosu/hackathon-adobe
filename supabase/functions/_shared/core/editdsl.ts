@@ -49,6 +49,17 @@ export const EditOp = z.discriminatedUnion("op", [
     saturation: z.number().min(0.6).max(1.4),
     contrast: z.number().min(0.85).max(1.2),
   }),
+  // Only available when generative edits are enabled. The renderer sends a crop of this one region to an
+  // image model and pastes the result back inside the region, so nothing outside it can change.
+  z.object({
+    op: z.literal("generative_inpaint"),
+    regionId,
+    instruction: z
+      .string()
+      .min(3)
+      .max(200)
+      .describe("What the region should look like afterwards. Never include a brand name, logo or readable text."),
+  }),
 ]);
 export type EditOpValue = z.infer<typeof EditOp>;
 
@@ -66,8 +77,14 @@ export type EditPlanValue = z.infer<typeof EditPlan>;
 export const PlanBatch = z.object({ plans: z.array(EditPlan).length(3) });
 
 // The spec shown to the planner is generated from the schema so the prompt can never drift from it.
-export function editDslSpec(): string {
-  return JSON.stringify(z.toJSONSchema(EditPlan), null, 1);
+// When generative edits are off, the planner is never told the op exists.
+export function editDslSpec(allowGenerative = false): string {
+  const schema = z.toJSONSchema(EditPlan) as { properties?: { ops?: { items?: { oneOf?: Array<{ properties?: { op?: { const?: string } } }> } } } };
+  const items = schema.properties?.ops?.items;
+  if (!allowGenerative && items?.oneOf) {
+    items.oneOf = items.oneOf.filter((o) => o.properties?.op?.const !== "generative_inpaint");
+  }
+  return JSON.stringify(schema, null, 1);
 }
 
 export interface PlanRegion {
@@ -84,9 +101,11 @@ export interface PlanContext {
   brief: CreativeBriefValue;
   // Colours that viewers associate with the competitor to escape.
   escapeColors: string[];
+  // Defaults to false: generative plans are rejected unless the deployment enabled them.
+  generativeEnabled?: boolean;
 }
 
-const REGION_OPS = new Set(["recolor_region", "scale_region", "move_region", "remove_region"]);
+const REGION_OPS = new Set(["recolor_region", "scale_region", "move_region", "remove_region", "generative_inpaint"]);
 
 // Which ablatable element an op touches. Cue-only elements (typography...) are never editable.
 function opElements(op: EditOpValue, region: PlanRegion | undefined): string[] {
@@ -148,6 +167,10 @@ export function validatePlan(plan: EditPlanValue, ctx: PlanContext): string[] {
 
   plan.ops.forEach((op, i) => {
     const at = `op ${i + 1} (${op.op})`;
+    if (op.op === "generative_inpaint") {
+      if (ctx.generativeEnabled !== true) violations.push(`${at}: generative edits are not enabled; use only the listed operations`);
+      if (/\b(logo|brand name|wordmark)\b/i.test(op.instruction)) violations.push(`${at}: the instruction must not ask for a logo or brand name`);
+    }
     let region: PlanRegion | undefined;
     if ("regionId" in op) {
       region = byRef.get(op.regionId);

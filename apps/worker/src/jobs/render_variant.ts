@@ -52,7 +52,7 @@ export const renderVariant: JobHandler<"render_variant"> = async (ctx, msg) => {
   const regions = await getAnalysisRegions(ctx.db, a.id, ad.id);
   const refs = buildRefs(regions, brief.lockedRegionIds);
 
-  const { raster, protectedBoxes } = await renderPlan(original, plan, refs, a.seed % 2147483647);
+  const { raster, protectedBoxes } = await renderPlan(original, plan, refs, a.seed % 2147483647, ctx.editor);
   const lockedChanged = changedWithin(original, raster, protectedBoxes);
   if (lockedChanged > GUARD_MAX_CHANGED_OUTSIDE) {
     mustOk(await ctx.db.from("variants").update({ status: "failed" }).eq("id", variant.id), "fail variant");

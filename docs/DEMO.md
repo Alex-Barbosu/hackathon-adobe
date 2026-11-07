@@ -27,5 +27,8 @@ A second run with the same `--seed` reads every panel answer from `ai_cache` and
 ## If quota runs out
 Re-run with the same seed: cached answers are reused. The report job falls back to a data-only template if the report model is unavailable.
 
+## Optional: generative edits (Cloudflare)
+Set `ENABLE_GENERATIVE_EDITS=true`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` (Workers AI Read + Edit). Verify with `pnpm exec tsx scripts/cf-smoke.ts`; the planner may then use `generative_inpaint` on one unlocked region per plan.
+
 ## Notice
 Free-tier Gemini data may be used by Google to improve its products. Only public ads. The panel is an AI proxy, not real people.

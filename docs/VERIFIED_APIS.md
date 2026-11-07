@@ -32,3 +32,10 @@ Sources: `ai.google.dev/gemini-api/docs/{interactions,structured-output,image-un
 ## Not yet verified in code (see DECISIONS.md for status)
 
 Anonymous sign-in availability on the project, Edge Function deploy without Docker (`supabase functions deploy --use-api`), Hono in Edge Functions (we use a hand-rolled router, ADR-005), signed upload URL behaviour.
+
+## Cloudflare Workers AI (checked 2026-11-07)
+- Source: developers.cloudflare.com/workers-ai (models pages, REST API page).
+- REST: `POST https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run/{model}` with `Authorization: Bearer {API_TOKEN}`; the token needs Workers AI Read and Edit.
+- `@cf/black-forest-labs/flux-2-klein-4b` and `flux-2-dev` combine generation and editing; input schema is `multipart` (field names not documented), output `{ image: <base64> }`.
+- `@cf/runwayml/stable-diffusion-v1-5-inpainting`: JSON `prompt`, `negative_prompt`, `image` (byte array) or `image_b64`, `mask` (byte array), `strength`, `num_steps` (max 20), `seed`. **Planned deprecation 2026-11-20.**
+- **Not verified**: the FLUX.2 multipart field names and the current free-tier limits. Run `scripts/cf-smoke.ts`.

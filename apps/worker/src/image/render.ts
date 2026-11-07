@@ -13,11 +13,14 @@ import {
   toPixels,
 } from "@nologo/core";
 import { dominantBackground, dominantInBox, localBackground } from "./color.ts";
+import type { ImageEditor } from "./generative.ts";
 import {
   cloneRaster,
   crop,
   fillRect,
   insideAny,
+  decodePng,
+  encodePng,
   paste,
   resizeRaster,
   type Raster,
@@ -79,7 +82,13 @@ function tone(r: Raster, saturation: number, contrast: number): void {
   }
 }
 
-async function applyOp(r: Raster, op: EditOpValue, regions: Map<string, RenderRegion>, seed: number): Promise<void> {
+async function applyOp(
+  r: Raster,
+  op: EditOpValue,
+  regions: Map<string, RenderRegion>,
+  seed: number,
+  editor: ImageEditor | undefined,
+): Promise<void> {
   const region = "regionId" in op ? regions.get(op.regionId) : undefined;
   if ("regionId" in op && !region) throw new RenderError(`Unknown region ${op.regionId}`);
   const fallback = dominantBackground(r, seed);
@@ -118,6 +127,16 @@ async function applyOp(r: Raster, op: EditOpValue, regions: Map<string, RenderRe
       fillRect(r, toPixels(bandBox(op), r.width, r.height), hexToRgb(op.hex));
       return;
     }
+    case "generative_inpaint": {
+      if (!region) return;
+      if (!editor) throw new RenderError("generative_inpaint needs an image editor; enable ENABLE_GENERATIVE_EDITS");
+      const box = toPixels(region.box, r.width, r.height);
+      const patch = crop(r, box);
+      const edited = await editor.edit({ png: await encodePng(patch), instruction: op.instruction, width: patch.width, height: patch.height, seed });
+      // The model sees only this crop; the result is pasted back inside the region, never beyond it.
+      paste(r, await resizeRaster(await decodePng(edited), patch.width, patch.height), box[1], box[0]);
+      return;
+    }
     case "tone":
       tone(r, op.saturation, op.contrast);
   }
@@ -130,10 +149,11 @@ export async function renderPlan(
   plan: EditPlanValue,
   regions: readonly RenderRegion[],
   seed: number,
+  editor?: ImageEditor,
 ): Promise<{ raster: Raster; protectedBoxes: PxBox[] }> {
   const byRef = new Map(regions.map((g) => [g.ref, g]));
   const out = cloneRaster(original);
-  for (const op of plan.ops) await applyOp(out, op, byRef, seed);
+  for (const op of plan.ops) await applyOp(out, op, byRef, seed, editor);
   const protectedBoxes = regions
     .filter((g) => g.locked || g.isIdentifier)
     .map((g) => toPixels(g.box, original.width, original.height));

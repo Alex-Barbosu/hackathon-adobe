@@ -60,3 +60,10 @@ One short ADR each: context, decision, consequence.
 
 ## ADR-016: Offline simulated LLM
 - `SimulatedLlm` (colour-layout matcher over thumbnails) lets scripts run the full pipeline without a Gemini key. It is not a language model; its numbers say nothing about real viewers and it is never used by the real worker.
+
+## ADR-017: Generative edits run on Cloudflare Workers AI
+- Context: PROMPT.md 14.6 left an optional generative path (Gemini image models, not reliably free). The user chose Cloudflare.
+- Decision: new Edit DSL op `generative_inpaint { regionId, instruction }`, off by default (`ENABLE_GENERATIVE_EDITS`). `CloudflareImageEditor` calls `POST /client/v4/accounts/{id}/ai/run/{model}`. Default model `@cf/black-forest-labs/flux-2-klein-4b`; `@cf/runwayml/stable-diffusion-v1-5-inpainting` works too but Cloudflare lists it for deprecation on 2026-11-20.
+- Safety: neither documented path takes a mask, so the renderer sends a crop of one unlocked region and pastes the result back inside that region only. Locked regions and identifiers are still restored from the original and the pixel guard still runs. The planner is only shown the op when enabled, and `validatePlan` rejects it otherwise, rejects logo/brand-name instructions and locked regions.
+- Caveat: Cloudflare documents the FLUX.2 input only as "multipart" with no field names. The names used (`prompt`, `input_image_0`, `width`, `height`) are constants in `generative.ts`; run `scripts/cf-smoke.ts` to confirm them on your account.
+- Consequence: generated pixels are not deterministic, so a re-render of the same plan can differ; the stored render and masked condition are the record of what was tested.

@@ -7,7 +7,7 @@ export const PROMPT_VERSION = "plan@1";
 export const REPAIR_PROMPT_VERSION = "plan_repair@1";
 export type PlanBatchValue = z.infer<typeof PlanBatch>;
 
-const SYSTEM = system(`You plan precise edits to an advertisement using ONLY the operations in the Edit DSL below.
+const SYSTEM = (allowGenerative: boolean): string => system(`You plan precise edits to an advertisement using ONLY the operations in the Edit DSL below.
 You receive: the original ad, the same ad with brand marks hidden, numbered regions with boxes,
 measurement results, diagnosis findings, and a creative brief with hard constraints.
 
@@ -21,7 +21,11 @@ Produce exactly 3 plans. Each plan:
 Do not add any brand name or logo. Do not imitate a competitor.
 
 Edit DSL (JSON schema of one plan):
-${editDslSpec()}`);
+${editDslSpec(allowGenerative)}${allowGenerative ? GENERATIVE_NOTE : ""}`);
+
+const GENERATIVE_NOTE = `
+
+A generative_inpaint op regenerates ONE unlocked region from a text instruction. Use it sparingly (at most one per plan), describe the visual change only, and never ask for text, logos or brand names.`;
 
 export interface PlanInput {
   original: ImageRef;
@@ -31,13 +35,14 @@ export interface PlanInput {
   findingsJson: string;
   briefJson: string;
   allowedPalette: string[];
+  allowGenerative?: boolean;
 }
 
 export function build(input: PlanInput): Omit<JsonRequest<PlanBatchValue>, "analysisId"> {
   return {
     task: "plan",
     promptVersion: PROMPT_VERSION,
-    system: SYSTEM,
+    system: SYSTEM(input.allowGenerative === true),
     parts: [
       image(input.original.png, input.original.sha256, "Original ad:"),
       image(input.masked.png, input.masked.sha256, "Same ad, brand marks hidden:"),

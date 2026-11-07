@@ -7,6 +7,7 @@ import { GeminiTransport } from "./llm/gemini.ts";
 import { RateLimiter } from "./llm/limiter.ts";
 import { LlmService } from "./llm/service.ts";
 import { SupabaseLlmStore } from "./llm/store.ts";
+import { CloudflareImageEditor, type ImageEditor } from "./image/generative.ts";
 import { Queue } from "./queue.ts";
 
 export function createLogger(level: string): pino.Logger {
@@ -38,7 +39,16 @@ export function createGeminiClient(env: Env, models: string[], db: ReturnType<ty
   return { llm, transport };
 }
 
-export function createCtx(env: Env, llm: LlmClient): Ctx {
+// Generative edits are off by default; turning them on requires Cloudflare credentials.
+export function createEditor(env: Env): ImageEditor | undefined {
+  if (!env.ENABLE_GENERATIVE_EDITS) return undefined;
+  if (!env.CLOUDFLARE_ACCOUNT_ID || !env.CLOUDFLARE_API_TOKEN) {
+    throw new Error("ENABLE_GENERATIVE_EDITS=true needs CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN");
+  }
+  return new CloudflareImageEditor({ accountId: env.CLOUDFLARE_ACCOUNT_ID, apiToken: env.CLOUDFLARE_API_TOKEN, model: env.CLOUDFLARE_IMAGE_MODEL });
+}
+
+export function createCtx(env: Env, llm: LlmClient, editor: ImageEditor | undefined = createEditor(env)): Ctx {
   const db = createDb(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
-  return { db, llm, env, log: createLogger(env.LOG_LEVEL), queue: new Queue(db) };
+  return { db, llm, env, log: createLogger(env.LOG_LEVEL), queue: new Queue(db), ...(editor ? { editor } : {}) };
 }
