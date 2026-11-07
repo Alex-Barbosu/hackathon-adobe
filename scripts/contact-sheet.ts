@@ -1,7 +1,7 @@
 // Phase 3 gate: writes tmp/contact-sheet.png with the baseline, every ablation and every Edit DSL op,
 // rendered on a synthetic ad, for visual review.
 import { mkdir, writeFile } from "node:fs/promises";
-import sharp from "sharp";
+import sharp, { type OverlayOptions } from "sharp";
 import type { EditOpValue, Rgb } from "@nologo/core";
 import { ablate } from "../apps/worker/src/image/ablate.ts";
 import { maskRaster } from "../apps/worker/src/image/mask.ts";
@@ -60,7 +60,7 @@ const size = 384;
 const cols = 4;
 const labelH = 22;
 const rows = Math.ceil(tiles.length / cols);
-const composites: sharp.OverlayOptions[] = [];
+const composites: OverlayOptions[] = [];
 for (const [i, t] of tiles.entries()) {
   const left = (i % cols) * size;
   const top = Math.floor(i / cols) * (size + labelH);
