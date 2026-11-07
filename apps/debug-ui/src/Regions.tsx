@@ -18,17 +18,29 @@ const KINDS = ["logo", "brand_name", "packaging_text", "url_or_handle", "mascot_
 const IDENTIFIERS = new Set(KINDS.slice(0, 4));
 
 export function Regions({ id }: { id: string }) {
-  const q = useQuery({ queryKey: ["regions", id], queryFn: () => api<Payload>("GET", `/analyses/${id}/regions`), staleTime: Infinity });
+  // Always refetch: leak checks can send an analysis back to review with different regions.
+  const q = useQuery({ queryKey: ["regions", id], queryFn: () => api<Payload>("GET", `/analyses/${id}/regions`), staleTime: 0, refetchOnMount: "always" });
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [regions, setRegions] = useState<Region[]>([]);
   useEffect(() => {
     if (q.data) setRegions(q.data.regions);
-  }, [q.data]);
+  }, [q.data, q.dataUpdatedAt]);
   const set = (i: number, patch: Partial<Region>) => setRegions(regions.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const save = async (force: boolean) => {
-    await api("PUT", `/analyses/${id}/regions`, {
-      regions: regions.map((r) => ({ ...(r.id ? { id: r.id } : {}), kind: r.kind, box: r.box, label: r.label ?? undefined, approved: r.approved })),
-    });
-    await api("POST", `/analyses/${id}/regions/approve`, { force });
+    setError("");
+    setSaving(true);
+    try {
+      await api("PUT", `/analyses/${id}/regions`, {
+        regions: regions.map((r) => ({ ...(r.id ? { id: r.id } : {}), kind: r.kind, box: r.box, label: r.label ?? undefined, approved: r.approved })),
+      });
+      await api("POST", `/analyses/${id}/regions/approve`, { force });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      void q.refetch();
+    } finally {
+      setSaving(false);
+    }
   };
   return (
     <section className="space-y-2 rounded border bg-white p-3">
@@ -53,8 +65,9 @@ export function Regions({ id }: { id: string }) {
         </div>
       ))}
       <button onClick={() => setRegions([...regions, { kind: "logo", box: [0, 0, 100, 100], label: "manual", approved: true }])}>Add box</button>{" "}
-      <button onClick={() => void save(false)}>Approve and continue</button>{" "}
-      <button onClick={() => void save(true)}>Force approve</button>
+      <button disabled={saving} onClick={() => void save(false)}>{saving ? "Saving…" : "Approve and continue"}</button>{" "}
+      <button disabled={saving} onClick={() => void save(true)}>Force approve</button>
+      {error && <p className="text-red-700">{error}</p>}
     </section>
   );
 }

@@ -169,8 +169,9 @@ export async function putRegions(req: Request, id: string, { uid, admin }: Auth)
   if (drop.length > 0) check(await admin.from("regions").delete().in("id", drop), "delete regions");
   for (const r of body.regions) {
     const row = { kind: r.kind, box: [...clampNorm(r.box)], label: r.label ?? null, approved: r.approved, source: "manual" };
-    if (r.id) {
-      if (!existing.some((e) => e.id === r.id)) throw new ApiError(404, "not_found", `region ${r.id} not found`);
+    // PUT replaces the whole set. An id this analysis no longer has (a stale client after a leak-check loop)
+    // is simply inserted as a new region instead of failing the request.
+    if (r.id && existing.some((e) => e.id === r.id)) {
       check(await admin.from("regions").update(row).eq("id", r.id), "update region");
     } else {
       check(await admin.from("regions").insert({ ...row, ad_id: adId, analysis_id: id, confidence: 1 }), "insert region");
