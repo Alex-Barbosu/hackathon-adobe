@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "start": "tsx src/main.ts",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "dev": "tsx src/main.ts",
+    "dev:sim": "tsx src/main.ts --simulated"
   },
   "dependencies": {
     "@google/genai": "latest",

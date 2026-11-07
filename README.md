@@ -57,7 +57,7 @@ pnpm exec tsx scripts/run-analysis.ts --simulated --auto-approve
 
 Live demo with Gemini: drop `--simulated`. Same `--seed` twice costs zero Gemini calls the second time (everything is cached in `ai_cache`).
 
-Browser: `VITE_SUPABASE_URL=… VITE_SUPABASE_ANON_KEY=… pnpm --filter @nologo/debug-ui dev` and `pnpm worker` in another terminal.
+Browser: `pnpm app` starts the worker and the UI together (http://localhost:5173); `pnpm app:sim` does the same with the offline simulated panel, so no Gemini credit is needed. The UI reads only `SUPABASE_URL` and `SUPABASE_ANON_KEY` from the root `.env`.
 
 ## Scripts
 

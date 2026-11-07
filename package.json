@@ -12,7 +12,9 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "check": "pnpm typecheck && pnpm lint && pnpm test",
-    "worker": "pnpm --filter @nologo/worker start"
+    "worker": "pnpm --filter @nologo/worker start",
+    "app": "pnpm -r --parallel --filter ./apps/* dev",
+    "app:sim": "pnpm -r --parallel --filter ./apps/* dev:sim"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

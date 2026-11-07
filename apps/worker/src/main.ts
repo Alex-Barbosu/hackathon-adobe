@@ -1,6 +1,7 @@
 import { clampNorm } from "@nologo/core";
 import { createDb } from "./db.ts";
 import { loadEnv, requiredModels } from "./env.ts";
+import { SimulatedLlm } from "./llm/simulated.ts";
 import { createCtx, createGeminiClient } from "./runtime.ts";
 import { startWorker } from "./worker.ts";
 
@@ -10,9 +11,19 @@ async function main(): Promise<void> {
   } catch {
     // No .env file: rely on the real environment.
   }
+  const simulated = process.argv.includes("--simulated");
+  if (simulated) process.env["GEMINI_API_KEY"] ??= "simulated";
   const env = loadEnv(process.env);
   const models = requiredModels(env);
   const dryRun = process.argv.includes("--dry-run");
+  if (simulated) {
+    // Offline stand-in for Gemini: lets the whole app run without model credit. Not a language model.
+    const ctx = createCtx(env, new SimulatedLlm({ oracle: () => undefined, dims: env.EMBED_DIMS }));
+    const handle = startWorker(ctx, { pollMs: env.WORKER_POLL_MS, concurrency: env.WORKER_CONCURRENCY, visibilitySeconds: 180 });
+    ctx.log.warn("worker started in SIMULATED mode: no Gemini calls, numbers are not real panel results");
+    process.once("SIGINT", () => void handle.stop().then(() => process.exit(0)));
+    return;
+  }
   const db = createDb(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
   const { llm, transport } = createGeminiClient(env, models, db);
 
