@@ -2,6 +2,8 @@ import { z } from "zod";
 
 // Every message carries an idempotency key so a redelivered message is harmless.
 export const JobMessage = z.discriminatedUnion("type", [
+  // Not in the original list: kicks off a freshly created analysis (ingest missing ads, then detect).
+  z.object({ type: z.literal("start_analysis"), analysisId: z.uuid(), idem: z.string() }),
   z.object({ type: z.literal("ingest_ad"), adId: z.uuid(), idem: z.string() }),
   z.object({ type: z.literal("detect_regions"), analysisId: z.uuid(), adId: z.uuid(), idem: z.string() }),
   z.object({ type: z.literal("leak_check"), analysisId: z.uuid(), idem: z.string() }),

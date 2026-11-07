@@ -365,3 +365,27 @@ export function validateDynamicQuestions(
   }
   return { questions, dropped };
 }
+
+// Stable order for tie-breaking when the API rebuilds a bank from rows: core templates first (in template
+// order), then dynamic questions, then clarifying ones.
+export const CORE_KEY_ORDER = [
+  "Q_NON_NEGOTIABLES",
+  "Q_OWNABLE_RANK",
+  "Q_CHANGE_BUDGET",
+  "Q_COLOR_FREEDOM",
+  "Q_PALETTE",
+  "Q_COMPETITOR_ESCAPE",
+  "Q_TONE",
+  "Q_RISK",
+  "Q_AUDIENCE",
+  "Q_TABOOS",
+  "Q_MANDATORY_COPY",
+] as const;
+
+export function orderOfKey(key: string): number {
+  const core = (CORE_KEY_ORDER as readonly string[]).indexOf(key);
+  if (core >= 0) return core;
+  const dyn = /^DYN_(\d+)$/.exec(key);
+  if (dyn?.[1]) return 100 + Number(dyn[1]);
+  return 200;
+}

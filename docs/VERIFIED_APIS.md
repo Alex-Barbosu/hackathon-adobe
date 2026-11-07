@@ -1,13 +1,34 @@
 # Verified APIs
 
-Only items actually checked are listed. Everything else is **not yet verified** and must be checked in its phase.
+Each item lists what was checked, where, and when. Anything not listed here has **not** been verified.
 
-## Verified 2026-11-07
+## Gemini API (checked 2026-11-07)
 
-- `@google/genai` **3.0.0** installed. It exposes both `client.models.*` (incl. `models.list()` returning an async-iterable `Pager<Model>`, used by `--dry-run`) and an `Interactions` client. Primary call style to be chosen in Phase 4.
-- Model ids `gemini-3.5-flash-lite`, `gemini-3.8-flash` appear on https://ai.google.dev/gemini-api/docs/models. `gemini-embedding-2` was not confirmed from that page; the startup check via `models.list()` is authoritative.
-- Supabase CLI 3.0.0; project linked (`supabase link`), hosted Postgres 17.
+Sources: `ai.google.dev/gemini-api/docs/{interactions,structured-output,image-understanding,embeddings,thinking,rate-limits,troubleshooting,models}` and the typings of the installed `@google/genai`.
 
-## Not yet verified (Phase 0 gate items still open)
+- **SDK**: `@google/genai` **3.0.0**. It exposes `client.interactions.create(...)`, `client.models.list()` (async-iterable `Pager<Model>`) and `client.models.embedContent(...)`.
+- **Call style**: the docs state the **Interactions API is GA (June 2026) and the recommended interface for new projects**; `generateContent` is "legacy" but supported. We use `interactions.create` and isolate it in `apps/worker/src/llm/gemini.ts`.
+  - Request: `{ model, input: [{type:"text", text}, {type:"image", data:<base64>, mime_type:"image/png"}], system_instruction, generation_config: { thinking_level }, response_format: { type:"text", mime_type:"application/json", schema }, store:false }`.
+  - Response: `interaction.output_text`; usage in `interaction.usage.{total_input_tokens,total_output_tokens,total_thought_tokens}`.
+  - `store: false` is supported (stateless); we set it so ad content is not retained server-side.
+  - Multiple images in one request: repeat `{type:"image"}` items (docs show two).
+- **Structured output**: JSON-schema **subset**. Supported: `string, number, integer, boolean, object, array, null`, `enum`, `format`, `minimum/maximum`, `items/prefixItems`, `minItems/maxItems`, `required`, `additionalProperties`. `minLength/maxLength/minProperties/uniqueItems/contains` are stripped by the server (not an error), so they must be validated client-side (we zod-parse everything). `minItems/maxItems` **are** enforced. Very deep or branching schemas return `400 INVALID_ARGUMENT`; we keep schemas flat and use arrays of `{key, value}` instead of records. `z.toJSONSchema(schema, { target: "draft-7" })` output works; we drop the `$schema` key.
+- **Thinking levels** (`generation_config.thinking_level`): `gemini-3.5-flash-lite`: minimal, low, medium, high (default minimal). `gemini-3.8-flash`: **low, medium, high only (no `minimal`)**, default medium. The adapter therefore never sends `minimal` to a model that does not list it; detection uses `minimal` when allowed, else `low`.
+- **Sampling parameters**: "Gemini 4 and Gemini 3.6+ models ignore custom `temperature`/`top_p`/`top_k` and return deprecation warning headers (and will return `400` errors in a future release)"; for earlier Gemini 3 models, keep them at defaults. **Decision**: the adapter never sends `temperature`. The prompt-level temperature stays in the request type and in the cache key, so determinism comes from the cache, not from sampling (ADR-006).
+- **Bounding boxes**: `box_2d` = `[ymin, xmin, ymax, xmax]` normalized to 0-1000 (matches our storage convention).
+- **Embeddings**: `gemini-embedding-2` is multimodal; call `client.models.embedContent({ model, contents: [{ inlineData: { mimeType, data } }], config: { outputDimensionality } })`. Max **6 images per request**, PNG/JPEG, 8192 input tokens. `output_dimensionality` range 128-3072 (recommended 768, 1536, 3072). **Below 3072 dims the model normalizes automatically**; we L2-normalize anyway.
+- **Rate limits**: applied **per project**, RPD resets at **midnight Pacific**. Real numbers live in the user's AI Studio page; defaults in `.env.example` are conservative guesses.
+- **Errors**: retry only `429`, `408`, `5xx` with exponential backoff + jitter; never retry `400/402/403`. The docs do not show a machine-readable retry delay for the Interactions API, so the client parses `retry in Ns` / `retryDelay` out of the error message when present and otherwise uses backoff.
+- **Models page** lists `gemini-3.5-flash-lite`, `gemini-3.8-flash`. `gemini-embedding-2` is documented on the embeddings page. Startup still lists models through `models.list()` and refuses to start if a required id is missing.
+- **Free tier data use**: free-tier content may be used by Google to improve products; only public ads go through the system (README + UI notice).
 
-Structured-output JSON-schema subset, thinking levels, embeddings params, 429 error shape, free-tier limits, Supabase Queues from server code, Edge Function limits, anonymous auth, signed upload URLs, Hono in Edge Functions, zod import for Deno.
+## Supabase (checked 2026-11-07, against the hosted project)
+
+- CLI 3.0.0. `supabase link`, `supabase db push --remote --include-seed --yes`, `supabase gen types typescript --linked` all worked against the hosted project; **no Docker needed**. In agent mode the CLI demands `--yes` for hosted mutations.
+- **pgmq** installs with `create extension pgmq` inside a migration on hosted Postgres 17; `pgmq.create('jobs_high')` works in a migration. We wrap `pgmq.send/read/delete/archive` in `public.queue_*` security-definer functions granted only to `service_role`, so `pgmq_public` is never exposed (ADR-007).
+- **pgvector** installs in the `extensions` schema; the column type is `extensions.vector(768)` and the operator is `operator(extensions.<=>)`.
+- Realtime: `alter publication supabase_realtime add table analysis_events;` applied cleanly.
+
+## Not yet verified in code (see DECISIONS.md for status)
+
+Anonymous sign-in availability on the project, Edge Function deploy without Docker (`supabase functions deploy --use-api`), Hono in Edge Functions (we use a hand-rolled router, ADR-005), signed upload URL behaviour.

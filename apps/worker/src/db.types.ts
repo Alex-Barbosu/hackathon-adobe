@@ -1229,6 +1229,14 @@ export type Database = {
         Args: { p_day: string; p_limit: number; p_model: string }
         Returns: boolean
       }
+      config_append: {
+        Args: { p_id: string; p_key: string; p_value: string }
+        Returns: undefined
+      }
+      config_merge: {
+        Args: { p_id: string; p_patch: Json }
+        Returns: undefined
+      }
       emit_event: {
         Args: { p_analysis_id: string; p_payload?: Json; p_type: string }
         Returns: undefined
@@ -1266,6 +1274,7 @@ export type Database = {
         Args: { delay_s?: number; msg: Json; q: string }
         Returns: number
       }
+      quota_used: { Args: { p_day: string; p_model: string }; Returns: number }
       register_batches: {
         Args: { p_analysis_id: string; p_batches: Json }
         Returns: {
