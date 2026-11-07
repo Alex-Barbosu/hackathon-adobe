@@ -87,6 +87,14 @@ export function editDslSpec(allowGenerative = false): string {
   return JSON.stringify(schema, null, 1);
 }
 
+// One line per operation listing the fields it REQUIRES, for prompts and repair requests.
+export function editOpFieldGuide(allowGenerative = false): string {
+  return EditOp.options
+    .filter((o) => allowGenerative || o.shape.op.value !== "generative_inpaint")
+    .map((o) => `- ${o.shape.op.value}: ${Object.keys(o.shape).filter((k) => k !== "op").join(", ")}`)
+    .join("\n");
+}
+
 export interface PlanRegion {
   // The "R1".."Rn" id shown to the planner.
   ref: string;

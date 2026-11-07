@@ -1,10 +1,10 @@
-import { PlanBatch, TEMPERATURES, editDslSpec } from "@nologo/core";
+import { PlanBatch, TEMPERATURES, editDslSpec, editOpFieldGuide } from "@nologo/core";
 import type { z } from "zod";
 import type { JsonRequest } from "../client.ts";
 import { image, system, text, type ImageRef } from "./shared.ts";
 
-export const PROMPT_VERSION = "plan@1";
-export const REPAIR_PROMPT_VERSION = "plan_repair@1";
+export const PROMPT_VERSION = "plan@2";
+export const REPAIR_PROMPT_VERSION = "plan_repair@2";
 export type PlanBatchValue = z.infer<typeof PlanBatch>;
 
 const SYSTEM = (allowGenerative: boolean): string => system(`You plan precise edits to an advertisement using ONLY the operations in the Edit DSL below.
@@ -19,6 +19,10 @@ Produce exactly 3 plans. Each plan:
 - follows the brief's change budget and preferred directions;
 - differs from the other two plans in strategy.
 Do not add any brand name or logo. Do not imitate a competitor.
+
+Every operation MUST include ALL of its fields; an operation with a missing field is invalid and the whole plan is discarded.
+Fields each operation requires:
+${editOpFieldGuide(allowGenerative)}
 
 Edit DSL (JSON schema of one plan):
 ${editDslSpec(allowGenerative)}${allowGenerative ? GENERATIVE_NOTE : ""}`);

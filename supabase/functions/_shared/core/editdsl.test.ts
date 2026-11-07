@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { norm } from "./boxes.ts";
-import { EditPlan, PlanBatch, bandBox, editDslSpec, footprintAfter, planSignature, validatePlan, type EditPlanValue, type PlanContext } from "./editdsl.ts";
+import { EditPlan, PlanBatch, bandBox, editDslSpec, editOpFieldGuide, footprintAfter, planSignature, validatePlan, type EditPlanValue, type PlanContext } from "./editdsl.ts";
 import { compileBrief, emptyDraft } from "./quiz/brief.ts";
 
 const brief = (over: Record<string, unknown> = {}) => {
@@ -114,5 +114,16 @@ describe("footprint math and signatures", () => {
     expect(bandBox({ op: "add_band", edge: "bottom", thicknessPct: 10, hex: "#000000" })).toEqual([900, 0, 1000, 1000]);
     const a = plan([{ op: "remove_region", regionId: "R2" }]);
     expect(planSignature(a)).toBe(planSignature(plan([{ op: "remove_region", regionId: "R2" }])));
+  });
+});
+
+describe("editOpFieldGuide", () => {
+  it("lists the fields every operation requires, and hides the generative op unless allowed", () => {
+    const guide = editOpFieldGuide();
+    expect(guide).toContain("- tone: saturation, contrast");
+    expect(guide).toContain("- add_band: edge, thicknessPct, hex");
+    expect(guide).toContain("- recolor_region: regionId, targetHex, toleranceDE");
+    expect(guide).not.toContain("generative_inpaint");
+    expect(editOpFieldGuide(true)).toContain("- generative_inpaint: regionId, instruction");
   });
 });

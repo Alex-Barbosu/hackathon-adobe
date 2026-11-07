@@ -38,14 +38,32 @@ function flattenDiscriminated(branches: Json[]): Json | null {
   );
   if (!disc) return null;
   const merged: Json = {};
+  const usedBy = new Map<string, string[]>();
   const values: unknown[] = [];
+  const guide: string[] = [];
   for (const b of branches) {
+    const name = String((props(b)[disc] as Json)["const"]);
+    const required = Array.isArray(b["required"]) ? (b["required"] as string[]).filter((k) => k !== disc) : [];
+    values.push(name);
+    guide.push(`${name}: ${required.join(", ") || "(no other fields)"}`);
     for (const [k, v] of Object.entries(props(b))) {
-      if (k === disc) values.push((v as Json)["const"]);
-      else if (!(k in merged)) merged[k] = v;
+      if (k === disc) continue;
+      usedBy.set(k, [...(usedBy.get(k) ?? []), name]);
+      if (!(k in merged)) merged[k] = v;
     }
   }
-  return { type: "object", properties: { [disc]: { type: "string", enum: values }, ...merged }, required: [disc], additionalProperties: false };
+  // Fields are optional on the wire, so say which ones each variant needs: without this the model omits them
+  // (seen live: tone without contrast, add_band without hex). Descriptions add no states to the grammar.
+  for (const [k, v] of Object.entries(merged)) {
+    const base = isObj(v) && typeof v["description"] === "string" ? `${v["description"]} ` : "";
+    merged[k] = { ...(isObj(v) ? v : {}), description: `${base}(used by: ${(usedBy.get(k) ?? []).join(", ")})` };
+  }
+  const discProp = {
+    type: "string",
+    enum: values,
+    description: `Which ${disc}. EVERY field listed for the chosen ${disc} is REQUIRED; never omit one. Required fields per ${disc}: ${guide.join("; ")}.`,
+  };
+  return { type: "object", properties: { [disc]: discProp, ...merged }, required: [disc], additionalProperties: false };
 }
 
 // T | null unions collapse to a type array, which the structured-output subset supports.

@@ -71,6 +71,11 @@ describe("toWireSchema", () => {
     ]);
     // Only the discriminator is required; every operation field is optional on the wire.
     expect(op.required).toEqual(["op"]);
+    // Optional on the wire, but the description tells the model what each operation needs.
+    const desc = (op.properties["op"] as { description?: string }).description ?? "";
+    expect(desc).toContain("tone: saturation, contrast");
+    expect(desc).toContain("add_band: edge, thicknessPct, hex");
+    expect((op.properties["contrast"] as { description?: string }).description).toContain("used by: tone");
     for (const field of ["regionId", "targetHex", "toleranceDE", "factor", "anchor", "dxPct", "edge", "thicknessPct", "hex", "saturation", "contrast", "instruction"]) {
       expect(op.properties[field], field).toBeDefined();
     }
