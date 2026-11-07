@@ -3,6 +3,87 @@ import { HttpError } from "../errors.ts";
 import type { Part } from "./client.ts";
 import type { EmbedTransportRequest, GenerateRequest, GenerateResponse, Transport } from "./transport.ts";
 
+// Wire/strict split. Gemini compiles the response schema into a state machine and rejects large ones
+// ("too many states for serving"). Every constraint that adds states is removed from what we SEND; the full
+// zod schema still validates what comes BACK (service.ts), and the repair round fixes violations.
+const STRIPPED_KEYS: ReadonlySet<string> = new Set([
+  "$schema",
+  "minimum",
+  "maximum",
+  "exclusiveMinimum",
+  "exclusiveMaximum",
+  "multipleOf",
+  "minLength",
+  "maxLength",
+  "pattern",
+  "format",
+  "minItems",
+  "maxItems",
+  "minProperties",
+  "maxProperties",
+  "uniqueItems",
+]);
+
+type Json = Record<string, unknown>;
+const isObj = (v: unknown): v is Json => typeof v === "object" && v !== null && !Array.isArray(v);
+
+// A union whose every branch is an object with a constant on the same key (zod's discriminatedUnion) becomes
+// ONE object: that key as an enum, every other field optional. The branch-specific rules are left to zod.
+function flattenDiscriminated(branches: Json[]): Json | null {
+  if (!branches.every((b) => b["type"] === "object" && isObj(b["properties"]))) return null;
+  const first = branches[0];
+  const props = (b: Json): Json => b["properties"] as Json;
+  const disc = Object.keys(first ? props(first) : {}).find((k) =>
+    branches.every((b) => isObj(props(b)[k]) && "const" in (props(b)[k] as Json)),
+  );
+  if (!disc) return null;
+  const merged: Json = {};
+  const values: unknown[] = [];
+  for (const b of branches) {
+    for (const [k, v] of Object.entries(props(b))) {
+      if (k === disc) values.push((v as Json)["const"]);
+      else if (!(k in merged)) merged[k] = v;
+    }
+  }
+  return { type: "object", properties: { [disc]: { type: "string", enum: values }, ...merged }, required: [disc], additionalProperties: false };
+}
+
+// T | null unions collapse to a type array, which the structured-output subset supports.
+function collapseNullable(branches: Json[]): Json | null {
+  if (branches.length !== 2) return null;
+  const nul = branches.find((b) => b["type"] === "null");
+  const other = branches.find((b) => b !== nul);
+  if (!nul || !other || typeof other["type"] !== "string") return null;
+  return { ...other, type: [other["type"], "null"] };
+}
+
+function wire(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(wire);
+  if (!isObj(node)) return node;
+  const union = (node["anyOf"] ?? node["oneOf"]);
+  if (Array.isArray(union)) {
+    const branches = union.filter(isObj);
+    const flat = flattenDiscriminated(branches) ?? collapseNullable(branches);
+    // Failing loudly at build time beats a 400 from the API at run time.
+    if (!flat) throw new Error("toWireSchema: unsupported union; model it as a flat object or an enum");
+    const { anyOf: _a, oneOf: _o, ...rest } = node;
+    return wire({ ...rest, ...flat });
+  }
+  const out: Json = {};
+  for (const [key, value] of Object.entries(node)) {
+    if (STRIPPED_KEYS.has(key)) continue;
+    // Keys under "properties" are field names, not keywords: keep them and recurse into the values.
+    out[key] = key === "properties" && isObj(value) ? Object.fromEntries(Object.entries(value).map(([k, v]) => [k, wire(v)])) : wire(value);
+  }
+  return out;
+}
+
+export function toWireSchema(schema: Record<string, unknown>): Record<string, unknown> {
+  const result = wire(schema);
+  if (!isObj(result)) throw new Error("toWireSchema: schema must be an object");
+  return result;
+}
+
 function toBase64(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString("base64");
 }
@@ -77,7 +158,7 @@ export class GeminiTransport implements Transport {
           input: toInput(req.parts),
           system_instruction: req.system,
           ...(req.thinkingLevel ? { generation_config: { thinking_level: req.thinkingLevel } } : {}),
-          response_format: { type: "text", mime_type: "application/json", schema: req.schemaJson },
+          response_format: { type: "text", mime_type: "application/json", schema: toWireSchema(req.schemaJson) },
           // Stateless: ad content is not retained server-side.
           store: false,
         }),
