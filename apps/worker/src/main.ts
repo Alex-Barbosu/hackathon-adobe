@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { clampBox } from "@nologo/core";
+import { clampNorm } from "@nologo/core";
 import { loadEnv, requiredModels, type Env } from "./env.ts";
 
 async function listAvailableModels(env: Env): Promise<Set<string>> {
@@ -20,7 +20,7 @@ async function dryRun(env: Env): Promise<number> {
     console.log(`${found ? "found  " : "MISSING"} ${id}`);
   }
   console.log(
-    `shared core reachable from worker: ${JSON.stringify(clampBox([-5, 10, 1200, 999]))}`,
+    `shared core reachable from worker: ${JSON.stringify(clampNorm([-5, 10, 1200, 999]))}`,
   );
   return missing === 0 ? 0 : 1;
 }

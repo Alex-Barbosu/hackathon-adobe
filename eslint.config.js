@@ -11,7 +11,7 @@ export default defineConfig(
       "coverage/**",
       "tmp/**",
       "supabase/.temp/**",
-      "supabase/functions/api/**",
+      "supabase/functions/api/**", "**/db.types.ts",
     ],
   },
   js.configs.recommended,
@@ -27,7 +27,9 @@ export default defineConfig(
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/ban-ts-comment": "error",
       "no-restricted-exports": ["error", { restrictDefaultExports: { direct: true } }],
+      "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: true }],
     },
   },
+  { files: ["**/*.test.ts"], rules: { "@typescript-eslint/no-non-null-assertion": "off", "@typescript-eslint/no-confusing-void-expression": "off" } },
   { files: ["*.config.{js,ts}"], rules: { "no-restricted-exports": "off" } },
 );
