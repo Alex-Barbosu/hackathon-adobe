@@ -3,7 +3,10 @@
 
 export const pct = (x: number): string => `${Math.round(x * 100)}%`;
 export const pctRange = (ci: readonly [number, number]): string => `${Math.round(ci[0] * 100)}–${Math.round(ci[1] * 100)}%`;
-export const points = (x: number): string => `${Math.abs(Math.round(x * 100))} points`;
+export const points = (x: number): string => {
+  const n = Math.abs(Math.round(x * 100));
+  return `${n} ${n === 1 ? "point" : "points"}`;
+};
 export const direction = (x: number): "higher" | "lower" | "unchanged" =>
   Math.round(x * 100) > 0 ? "higher" : Math.round(x * 100) < 0 ? "lower" : "unchanged";
 
@@ -61,7 +64,7 @@ export function templateReport(d: ReportData): string {
   const carries = d.elements.filter((e) => e.label === "strong_asset");
   const betrays = d.elements.filter((e) => e.label === "traitor");
   lines.push(`\n**What carries the brand.** ${carries.length === 0 ? "No single element clearly carries the brand." : carries.map((e) => `${e.element} (removing it makes attribution ${e.direction === "higher" ? "lower" : "higher"} by ${e.change})`).join("; ")}.`);
-  lines.push(`\n**What betrays it.** ${betrays.length === 0 ? "No element was found pulling viewers toward one competitor." : betrays.map((e) => e.element).join(", ")}.`);
+  lines.push(`\n**What betrays it.** ${betrays.length === 0 ? "No element was found pulling viewers toward one competitor" : betrays.map((e) => e.element).join(", ")}.`);
   if (d.similarity) lines.push(`\n**Category.** The ad sits at the ${d.similarity.percentile} point of closeness to the category average${d.similarity.nearestBrand ? `; its nearest look-alike is ${d.similarity.nearestBrand}` : ""}.`);
   if (d.variants.length > 0) {
     lines.push("\n**Variants.**");

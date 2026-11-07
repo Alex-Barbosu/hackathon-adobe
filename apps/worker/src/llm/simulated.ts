@@ -84,7 +84,11 @@ export class SimulatedLlm implements LlmClient {
         };
       }
       case "brand_fit":
-        return { versions: [...text.matchAll(/V(\d+)/g)].length === 0 ? [] : [1, 2, 3].map((n) => ({ version: `V${n}`, tone_match: 4, taboo_violations: [], mandatory_copy_ok: true, note: "Simulated check." })) };
+        return {
+          versions: req.parts
+            .flatMap((p) => (p.kind === "image" && /^V\d+:/.test(p.label ?? "") ? [(p.label ?? "").replace(":", "")] : []))
+            .map((version) => ({ version, tone_match: 4, taboo_violations: [], mandatory_copy_ok: true, note: "Simulated check." })),
+        };
       case "report": {
         const data = JSON.parse(/Report data \(JSON\):\n([\s\S]*?)(\nYour previous|$)/.exec(text)?.[1] ?? "{}") as ReportData;
         return { markdown: templateReport(data) };
